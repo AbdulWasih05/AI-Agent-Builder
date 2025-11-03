@@ -21,3 +21,4 @@ Controls:
 - Type `exit`, `quit`, or `bye` (or press Ctrl+C) to end the session.
 
 The script is dependency-free and works with Python 3.6+.
+A small demo project to build, run and experiment with agentic AI. Designed for personal academic assignment and version control.This allow us to learn new things that actually make sense
