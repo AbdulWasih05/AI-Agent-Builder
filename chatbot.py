@@ -1,19 +1,24 @@
 
 """
-CLI chatbot with conversation history tracking.
+CLI chatbot with persistent conversation history.
 
-This is an enhanced version of the simple chatbot that now:
-- Stores conversation history (last 10 messages)
+Features:
+- Stores conversation history (last 10 messages in memory)
+- Saves history to a JSON file for persistence
+- Loads previous conversations on startup
 - Allows you to view the chat history
 - Supports basic keyword-based responses
 
 Type 'exit', 'quit' or press Ctrl+C to end the session.
 Type 'history' to see the conversation so far.
+Type 'clear' to start a fresh conversation.
 """
 
 import sys
+import json
 import random
 from typing import List, Tuple
+from pathlib import Path
 
 RESPONSES = {
     "hello": "Hello! How can I help you today?",
@@ -34,17 +39,39 @@ EXIT_KEYWORDS = {"exit", "quit", "bye", "goodbye"}
 
 
 class ConversationHistory:
-    """Store and retrieve conversation messages."""
+    """Store and retrieve conversation messages with file persistence."""
     
-    def __init__(self, max_size: int = 10):
+    def __init__(self, max_size: int = 10, history_file: str = "chat_history.json"):
         self.messages: List[Tuple[str, str]] = []  # (speaker, text)
         self.max_size = max_size
+        self.history_file = Path(history_file)
+        self.load_from_file()
+    
+    def load_from_file(self) -> None:
+        """Load conversation history from JSON file."""
+        if self.history_file.exists():
+            try:
+                with open(self.history_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # Keep only the last max_size messages
+                    self.messages = [tuple(msg) for msg in data[-self.max_size:]]
+            except (json.JSONDecodeError, IOError):
+                self.messages = []
+    
+    def save_to_file(self) -> None:
+        """Save conversation history to JSON file."""
+        try:
+            with open(self.history_file, "w", encoding="utf-8") as f:
+                json.dump(self.messages, f, indent=2, ensure_ascii=False)
+        except IOError as e:
+            print(f"Warning: Could not save history: {e}")
     
     def add(self, speaker: str, text: str) -> None:
-        """Add a message to history."""
+        """Add a message to history and save."""
         self.messages.append((speaker, text))
         if len(self.messages) > self.max_size:
             self.messages.pop(0)
+        self.save_to_file()
     
     def display(self) -> str:
         """Return formatted history for display."""
@@ -56,6 +83,11 @@ class ConversationHistory:
             prefix = "You" if speaker == "user" else "Bot"
             lines.append(f"  {prefix}: {text}")
         return "\n".join(lines)
+    
+    def clear(self) -> None:
+        """Clear all history."""
+        self.messages = []
+        self.save_to_file()
 
 
 def get_response(message: str) -> str:
@@ -75,7 +107,7 @@ def get_response(message: str) -> str:
 
 
 def main() -> None:
-    print("Chatbot with History Tracking — type 'history' to see your chat, or 'exit' to leave\n")
+    print("Chatbot with Persistent History — type 'history' to see your chat, 'clear' to reset, or 'exit' to leave\n")
     
     history = ConversationHistory()
     
@@ -89,13 +121,19 @@ def main() -> None:
             
             # Check for exit
             if user_input.lower() in EXIT_KEYWORDS:
-                print("Bot: Goodbye!\n")
+                print("Bot: Goodbye! (History saved to chat_history.json)\n")
                 break
             
             # Check for history command
             if user_input.lower() == "history":
                 print(f"Bot: {history.display()}\n")
                 history.add("user", user_input)
+                continue
+            
+            # Check for clear command
+            if user_input.lower() == "clear":
+                history.clear()
+                print("Bot: Conversation history cleared!\n")
                 continue
             
             # Record user message
@@ -107,7 +145,7 @@ def main() -> None:
             print(f"Bot: {response}\n")
     
     except (KeyboardInterrupt, EOFError):
-        print("\nBot: Goodbye!\n")
+        print("\nBot: Goodbye! (History saved to chat_history.json)\n")
         sys.exit(0)
 
 
